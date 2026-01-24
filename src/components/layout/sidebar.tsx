@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
@@ -53,7 +54,13 @@ export function Sidebar({ foundationName, userName }: SidebarProps) {
       )}>
         {(!collapsed || isMobile) && (
           <div className="truncate">
-            <h1 className="font-semibold text-lg truncate">{foundationName || 'Foundation'}</h1>
+            <Image
+              src="/ralphi_logo.png"
+              alt="Ralphi logo"
+              width={150}
+              height={40}
+              className="object-contain"
+            />
           </div>
         )}
         {!isMobile && (
