@@ -16,7 +16,7 @@ export function GoalProgressChart({ granted, goal }: GoalProgressChartProps) {
     { name: 'Remaining', value: remaining },
   ]
 
-  const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--muted))']
+  const COLORS = ['#10b981', '#e5e7eb']
 
   return (
     <div className="relative h-[200px] w-full">
