@@ -5,14 +5,14 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import Link from 'next/link'
-import { Plus, HandCoins } from 'lucide-react'
+import { Plus, HandCoins, FileUp } from 'lucide-react'
 import { GrantsPipeline } from './grants-pipeline'
 import { GrantsTable } from './grants-table'
 
 export default async function GrantsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string; status?: string }>
+  searchParams: Promise<{ view?: string }>
 }) {
   const params = await searchParams
   const supabase = await createClient()
@@ -29,7 +29,7 @@ export default async function GrantsPage({
   if (!profile) redirect('/login')
 
   // Get grants with organization info
-  let query = supabase
+  const { data: grants } = await supabase
     .from('grants')
     .select(`
       *,
@@ -39,14 +39,8 @@ export default async function GrantsPage({
     .eq('foundation_id', profile.foundation_id)
     .order('created_at', { ascending: false })
 
-  if (params.status) {
-    query = query.eq('status', params.status)
-  }
-
-  const { data: grants } = await query
-
   // Group grants by status for pipeline view
-  const statuses = ['idea', 'research', 'review', 'pending_vote', 'approved', 'submitted', 'paid', 'declined', 'closed']
+  const statuses = ['review', 'approved', 'paid', 'declined', 'closed']
   const grantsByStatus: Record<string, any[]> = {}
   statuses.forEach(status => {
     grantsByStatus[status] = grants?.filter((g: any) => g.status === status) || []
@@ -56,8 +50,8 @@ export default async function GrantsPage({
   const pipelineStats = {
     total: grants?.length || 0,
     totalValue: grants?.reduce((sum, g) => sum + (g.amount || 0), 0) || 0,
-    pending: grants?.filter(g => ['idea', 'research', 'review', 'pending_vote'].includes(g.status)).length || 0,
-    approved: grants?.filter(g => ['approved', 'submitted', 'paid'].includes(g.status)).length || 0,
+    pending: grants?.filter(g => g.status === 'review').length || 0,
+    approved: grants?.filter(g => ['approved', 'paid'].includes(g.status)).length || 0,
   }
 
   const view = params.view || 'pipeline'
@@ -74,12 +68,20 @@ export default async function GrantsPage({
           </p>
         </div>
         {canCreate && (
-          <Link href="/grants/new">
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              New Grant
-            </Button>
-          </Link>
+          <div className="flex gap-2">
+            <Link href="/grants/import">
+              <Button variant="outline">
+                <FileUp className="h-4 w-4 mr-2" />
+                Import CSV
+              </Button>
+            </Link>
+            <Link href="/grants/new">
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                New Grant
+              </Button>
+            </Link>
+          </div>
         )}
       </div>
 
@@ -100,44 +102,31 @@ export default async function GrantsPage({
         <Card>
           <CardContent className="pt-6">
             <div className="text-2xl font-bold">
-              {grants?.filter(g => g.status === 'pending_vote').length || 0}
+              {grants?.filter(g => g.status === 'declined').length || 0}
             </div>
-            <p className="text-sm text-muted-foreground">Pending Vote</p>
+            <p className="text-sm text-muted-foreground">Declined</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <div className="text-2xl font-bold">
-              {grants?.filter(g => g.status === 'review').length || 0}
+              {grants?.filter(g => g.status === 'paid').length || 0}
             </div>
-            <p className="text-sm text-muted-foreground">Under Review</p>
+            <p className="text-sm text-muted-foreground">Paid</p>
           </CardContent>
         </Card>
       </div>
 
       {/* View toggle */}
       <Tabs defaultValue={view} className="w-full">
-        <div className="flex items-center justify-between">
-          <TabsList>
-            <TabsTrigger value="pipeline">
-              <Link href="/grants?view=pipeline">Pipeline</Link>
-            </TabsTrigger>
-            <TabsTrigger value="list">
-              <Link href="/grants?view=list">List</Link>
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Status filter badges */}
-          <div className="flex gap-2 flex-wrap">
-            {params.status && (
-              <Link href="/grants">
-                <Badge variant="secondary" className="cursor-pointer">
-                  {params.status.replace('_', ' ')} ×
-                </Badge>
-              </Link>
-            )}
-          </div>
-        </div>
+        <TabsList>
+          <TabsTrigger value="pipeline">
+            <Link href="/grants?view=pipeline">Pipeline</Link>
+          </TabsTrigger>
+          <TabsTrigger value="list">
+            <Link href="/grants?view=list">List</Link>
+          </TabsTrigger>
+        </TabsList>
 
         <TabsContent value="pipeline" className="mt-6">
           {grants && grants.length > 0 ? (

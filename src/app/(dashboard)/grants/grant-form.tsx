@@ -28,7 +28,7 @@ import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { CalendarIcon, Plus } from 'lucide-react'
-import { format } from 'date-fns'
+import { addMonths, format, isAfter } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { Grant, GrantStatus, GrantRecurrence } from '@/types/database'
@@ -61,6 +61,33 @@ const recurrenceOptions: { value: GrantRecurrence; label: string }[] = [
   { value: 'annual', label: 'Annual' },
 ]
 
+const recurrenceMonths: Record<Exclude<GrantRecurrence, 'one_time'>, number> = {
+  monthly: 1,
+  quarterly: 3,
+  semi_annual: 6,
+  annual: 12,
+}
+
+const generatePaymentDates = (
+  startDate: Date,
+  endDate: Date,
+  recurrenceType: GrantRecurrence
+) => {
+  if (recurrenceType === 'one_time') return []
+  const intervalMonths = recurrenceMonths[recurrenceType]
+  const dates: Date[] = []
+  let current = new Date(startDate)
+
+  if (isAfter(current, endDate)) return []
+
+  while (!isAfter(current, endDate)) {
+    dates.push(new Date(current))
+    current = addMonths(current, intervalMonths)
+  }
+
+  return dates
+}
+
 interface GrantFormProps {
   grant?: Grant
   organizations: SimpleOrganization[]
@@ -70,12 +97,8 @@ interface GrantFormProps {
 }
 
 const statusOptions: { value: GrantStatus; label: string }[] = [
-  { value: 'idea', label: 'Idea' },
-  { value: 'research', label: 'Research' },
   { value: 'review', label: 'Review' },
-  { value: 'pending_vote', label: 'Pending Vote' },
   { value: 'approved', label: 'Approved' },
-  { value: 'submitted', label: 'Submitted' },
   { value: 'paid', label: 'Paid' },
   { value: 'declined', label: 'Declined' },
   { value: 'closed', label: 'Closed' },
@@ -173,11 +196,8 @@ export function GrantForm({
   }
   const [amount, setAmount] = useState(grant?.amount?.toString() || '')
   const [purpose, setPurpose] = useState(grant?.purpose || '')
-  const [status, setStatus] = useState<GrantStatus>(grant?.status || 'idea')
+  const [status, setStatus] = useState<GrantStatus>(grant?.status || 'review')
   const [recurrenceType, setRecurrenceType] = useState<GrantRecurrence>(grant?.recurrence_type || 'one_time')
-  const [nextPaymentDate, setNextPaymentDate] = useState<Date | undefined>(
-    grant?.next_payment_date ? new Date(grant.next_payment_date) : undefined
-  )
   const [startDate, setStartDate] = useState<Date | undefined>(
     grant?.start_date ? new Date(grant.start_date) : undefined
   )
@@ -194,8 +214,10 @@ export function GrantForm({
       return
     }
 
-    if (!amount || parseFloat(amount) <= 0) {
-      setError('Please enter a valid amount')
+    const parsedAmount = amount ? parseFloat(amount) : null
+
+    if (parsedAmount !== null && parsedAmount < 0) {
+      setError('Amount cannot be negative')
       return
     }
 
@@ -203,20 +225,26 @@ export function GrantForm({
 
     const supabase = createClient()
 
+    const startDateString = startDate ? format(startDate, 'yyyy-MM-dd') : null
+    const endDateString = endDate ? format(endDate, 'yyyy-MM-dd') : null
+    const nextPaymentDateString =
+      recurrenceType !== 'one_time' && startDateString ? startDateString : null
+
     const grantData = {
       organization_id: organizationId,
       foundation_id: foundationId,
-      amount: parseFloat(amount),
+      amount: parsedAmount,
       purpose: purpose || null,
       status,
       recurrence_type: recurrenceType,
-      next_payment_date: recurrenceType !== 'one_time' && nextPaymentDate
-        ? format(nextPaymentDate, 'yyyy-MM-dd')
-        : null,
-      start_date: startDate ? format(startDate, 'yyyy-MM-dd') : null,
-      end_date: endDate ? format(endDate, 'yyyy-MM-dd') : null,
+      next_payment_date: nextPaymentDateString,
+      start_date: startDateString,
+      end_date: endDateString,
       proposed_by: userId,
     }
+
+    const shouldGeneratePayments =
+      recurrenceType !== 'one_time' && !!startDateString && !!endDateString && parsedAmount !== null
 
     if (grant) {
       // Update
@@ -229,6 +257,65 @@ export function GrantForm({
         setError(error.message)
         setLoading(false)
         return
+      }
+
+      const recurrenceChanged =
+        recurrenceType !== grant.recurrence_type ||
+        startDateString !== grant.start_date ||
+        endDateString !== grant.end_date
+      const amountChanged = parsedAmount !== grant.amount
+
+      if (recurrenceChanged) {
+        const { error: deleteError } = await supabase
+          .from('grant_payments')
+          .delete()
+          .eq('grant_id', grant.id)
+          .eq('status', 'scheduled')
+
+        if (deleteError) {
+          setError(deleteError.message)
+          setLoading(false)
+          return
+        }
+
+        if (shouldGeneratePayments) {
+          const paymentDates = generatePaymentDates(
+            startDate as Date,
+            endDate as Date,
+            recurrenceType
+          )
+
+          if (paymentDates.length > 0) {
+            const { error: insertError } = await supabase
+              .from('grant_payments')
+              .insert(
+                paymentDates.map((date) => ({
+                  grant_id: grant.id,
+                  amount: parsedAmount!,
+                  payment_date: format(date, 'yyyy-MM-dd'),
+                  status: 'scheduled',
+                }))
+              )
+
+            if (insertError) {
+              setError(insertError.message)
+              setLoading(false)
+              return
+            }
+          }
+        }
+      } else if (amountChanged && shouldGeneratePayments) {
+        const { error: updateError } = await supabase
+          .from('grant_payments')
+          .update({ amount: parsedAmount! })
+          .eq('grant_id', grant.id)
+          .eq('status', 'scheduled')
+
+        if (updateError) {
+          setError(updateError.message)
+          setLoading(false)
+          return
+        }
       }
       toast.success('Grant updated')
     } else {
@@ -245,6 +332,33 @@ export function GrantForm({
         return
       }
 
+      if (shouldGeneratePayments) {
+        const paymentDates = generatePaymentDates(
+          startDate as Date,
+          endDate as Date,
+          recurrenceType
+        )
+
+        if (paymentDates.length > 0) {
+          const { error: insertError } = await supabase
+            .from('grant_payments')
+            .insert(
+              paymentDates.map((date) => ({
+                grant_id: data.id,
+                amount: parsedAmount!,
+                payment_date: format(date, 'yyyy-MM-dd'),
+                status: 'scheduled',
+              }))
+            )
+
+          if (insertError) {
+            setError(insertError.message)
+            setLoading(false)
+            return
+          }
+        }
+      }
+
       // Log activity
       const org = organizations.find(o => o.id === organizationId)
       await supabase.from('activity_log').insert({
@@ -253,7 +367,7 @@ export function GrantForm({
         action: 'grant_created',
         entity_type: 'grant',
         entity_id: data.id,
-        details: { organization: org?.name, amount: parseFloat(amount) },
+        details: { organization: org?.name, amount: parsedAmount },
       })
 
       toast.success('Grant created')
@@ -409,7 +523,9 @@ export function GrantForm({
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="amount">Amount *</Label>
+              <Label htmlFor="amount">
+                {recurrenceType === 'one_time' ? 'Amount' : 'Per-Payment Amount'}
+              </Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
                 <Input
@@ -421,9 +537,13 @@ export function GrantForm({
                   className="pl-7"
                   min="0"
                   step="0.01"
-                  required
                 />
               </div>
+              {recurrenceType !== 'one_time' && (
+                <p className="text-xs text-muted-foreground">
+                  You can adjust individual payment amounts later in the schedule.
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="status">Status</Label>
@@ -469,33 +589,7 @@ export function GrantForm({
                 </SelectContent>
               </Select>
             </div>
-            {recurrenceType !== 'one_time' && (
-              <div className="space-y-2">
-                <Label>Next Payment Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        'w-full justify-start text-left font-normal',
-                        !nextPaymentDate && 'text-muted-foreground'
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {nextPaymentDate ? format(nextPaymentDate, 'PPP') : 'Select date'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={nextPaymentDate}
-                      onSelect={setNextPaymentDate}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-            )}
+            <div />
           </div>
         </CardContent>
       </Card>

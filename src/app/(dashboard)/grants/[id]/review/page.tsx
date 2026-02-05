@@ -234,7 +234,7 @@ export default function GrantReviewPage() {
             {existingReview ? 'Edit Review' : 'Review Grant'}
           </h1>
           <p className="text-muted-foreground">
-            ${grant?.amount.toLocaleString()} to {(grant?.organization as Organization)?.name}
+            {grant?.amount != null ? `$${grant.amount.toLocaleString()}` : 'TBD'} to {(grant?.organization as Organization)?.name}
           </p>
         </div>
       </div>
@@ -259,7 +259,7 @@ export default function GrantReviewPage() {
               </div>
               <div>
                 <p className="text-muted-foreground">Amount</p>
-                <p className="font-medium">${grant?.amount.toLocaleString()}</p>
+                <p className="font-medium">{grant?.amount != null ? `$${grant.amount.toLocaleString()}` : 'TBD'}</p>
               </div>
             </div>
             {grant?.purpose && (

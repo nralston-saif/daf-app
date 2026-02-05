@@ -1,12 +1,8 @@
 export type UserRole = 'primary_advisor' | 'advisor' | 'contributor' | 'observer'
 
 export type GrantStatus =
-  | 'idea'
-  | 'research'
   | 'review'
-  | 'pending_vote'
   | 'approved'
-  | 'submitted'
   | 'paid'
   | 'declined'
   | 'closed'
@@ -14,6 +10,7 @@ export type GrantStatus =
 export type Recommendation = 'approve' | 'decline' | 'abstain'
 
 export type GrantRecurrence = 'one_time' | 'monthly' | 'quarterly' | 'semi_annual' | 'annual'
+export type GrantPaymentStatus = 'scheduled' | 'paid'
 
 export interface Database {
   public: {
@@ -180,7 +177,7 @@ export interface Database {
           foundation_id: string
           organization_id: string
           status: GrantStatus
-          amount: number
+          amount: number | null
           purpose: string | null
           focus_areas: string[]
           start_date: string | null
@@ -197,7 +194,7 @@ export interface Database {
           foundation_id: string
           organization_id: string
           status?: GrantStatus
-          amount: number
+          amount?: number | null
           purpose?: string | null
           focus_areas?: string[]
           start_date?: string | null
@@ -214,7 +211,7 @@ export interface Database {
           foundation_id?: string
           organization_id?: string
           status?: GrantStatus
-          amount?: number
+          amount?: number | null
           purpose?: string | null
           focus_areas?: string[]
           start_date?: string | null
@@ -233,27 +230,30 @@ export interface Database {
           grant_id: string
           amount: number
           payment_date: string
-          status: string
+          status: GrantPaymentStatus
           notes: string | null
           created_at: string
+          updated_at: string
         }
         Insert: {
           id?: string
           grant_id: string
           amount: number
           payment_date: string
-          status?: string
+          status?: GrantPaymentStatus
           notes?: string | null
           created_at?: string
+          updated_at?: string
         }
         Update: {
           id?: string
           grant_id?: string
           amount?: number
           payment_date?: string
-          status?: string
+          status?: GrantPaymentStatus
           notes?: string | null
           created_at?: string
+          updated_at?: string
         }
       }
       grant_reviews: {
@@ -407,6 +407,7 @@ export interface Database {
       user_role: UserRole
       grant_status: GrantStatus
       recommendation: Recommendation
+      grant_recurrence: GrantRecurrence
     }
   }
 }
@@ -450,4 +451,3 @@ export type GrantWithDetails = Grant & {
 export type OrganizationWithGrants = Organization & {
   grants: Grant[]
 }
-

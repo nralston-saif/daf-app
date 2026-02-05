@@ -19,15 +19,12 @@ import {
 import { format } from 'date-fns'
 import { GrantStatusSelect } from './grant-status-select'
 import { GrantComments } from './grant-comments'
+import { PaymentSchedule } from './payment-schedule'
 import type { GrantStatus } from '@/types/database'
 
 const statusColors: Record<string, string> = {
-  idea: 'bg-gray-100 text-gray-800',
-  research: 'bg-blue-100 text-blue-800',
   review: 'bg-yellow-100 text-yellow-800',
-  pending_vote: 'bg-orange-100 text-orange-800',
   approved: 'bg-green-100 text-green-800',
-  submitted: 'bg-purple-100 text-purple-800',
   paid: 'bg-emerald-100 text-emerald-800',
   declined: 'bg-red-100 text-red-800',
   closed: 'bg-gray-100 text-gray-800',
@@ -83,6 +80,13 @@ export default async function GrantDetailPage({
     .eq('grant_id', id)
     .order('created_at', { ascending: true })
 
+  // Get payment schedule
+  const { data: payments } = await supabase
+    .from('grant_payments')
+    .select('*')
+    .eq('grant_id', id)
+    .order('payment_date', { ascending: true })
+
   // Get documents
   const { data: documents } = await supabase
     .from('documents')
@@ -122,7 +126,7 @@ export default async function GrantDetailPage({
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold text-gray-900">
-                ${grant.amount.toLocaleString()}
+                {grant.amount != null ? `$${grant.amount.toLocaleString()}` : 'TBD'}
               </h1>
               <Badge className={statusColors[grant.status] || 'bg-gray-100'}>
                 {grant.status.replace('_', ' ')}
@@ -242,6 +246,13 @@ export default async function GrantDetailPage({
               </p>
             </CardContent>
           </Card>
+
+          {grant.recurrence_type !== 'one_time' && (
+            <PaymentSchedule
+              grantId={id}
+              payments={payments || []}
+            />
+          )}
 
           {/* Reviews */}
           <Card>
