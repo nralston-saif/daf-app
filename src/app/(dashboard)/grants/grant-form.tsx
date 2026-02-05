@@ -16,13 +16,40 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { CalendarIcon } from 'lucide-react'
+import { MultiSelect } from '@/components/ui/multi-select'
+import { CalendarIcon, Plus } from 'lucide-react'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { Grant, GrantStatus, GrantRecurrence } from '@/types/database'
+
+const FOCUS_AREA_OPTIONS = [
+  'Education',
+  'Healthcare',
+  'Environment',
+  'Poverty Alleviation',
+  'Arts & Culture',
+  'Human Rights',
+  'Animal Welfare',
+  'Community Development',
+  'Disaster Relief',
+  'Scientific Research',
+  'Youth Development',
+  'Senior Services',
+  'Mental Health',
+  'Housing',
+  'Food Security',
+]
 
 type SimpleOrganization = { id: string; name: string }
 
@@ -56,7 +83,7 @@ const statusOptions: { value: GrantStatus; label: string }[] = [
 
 export function GrantForm({
   grant,
-  organizations,
+  organizations: initialOrganizations,
   userId,
   foundationId,
   defaultOrganizationId,
@@ -65,9 +92,85 @@ export function GrantForm({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Local organizations list that can be updated when new orgs are created
+  const [organizations, setOrganizations] = useState<SimpleOrganization[]>(initialOrganizations)
+
   const [organizationId, setOrganizationId] = useState(
     grant?.organization_id || defaultOrganizationId || ''
   )
+
+  // New organization dialog state
+  const [newOrgDialogOpen, setNewOrgDialogOpen] = useState(false)
+  const [newOrgLoading, setNewOrgLoading] = useState(false)
+  const [newOrgError, setNewOrgError] = useState<string | null>(null)
+  const [newOrgName, setNewOrgName] = useState('')
+  const [newOrgEin, setNewOrgEin] = useState('')
+  const [newOrgWebsite, setNewOrgWebsite] = useState('')
+  const [newOrgMission, setNewOrgMission] = useState('')
+  const [newOrgTaxStatus, setNewOrgTaxStatus] = useState('')
+  const [newOrgTags, setNewOrgTags] = useState<string[]>([])
+
+  const resetNewOrgForm = () => {
+    setNewOrgName('')
+    setNewOrgEin('')
+    setNewOrgWebsite('')
+    setNewOrgMission('')
+    setNewOrgTaxStatus('')
+    setNewOrgTags([])
+    setNewOrgError(null)
+  }
+
+  const handleCreateOrganization = async () => {
+    if (!newOrgName.trim()) {
+      setNewOrgError('Organization name is required')
+      return
+    }
+
+    setNewOrgLoading(true)
+    setNewOrgError(null)
+
+    const supabase = createClient()
+
+    const { data, error } = await supabase
+      .from('organizations')
+      .insert({
+        name: newOrgName,
+        ein: newOrgEin || null,
+        website: newOrgWebsite || null,
+        mission: newOrgMission || null,
+        tax_status: newOrgTaxStatus || null,
+        tags: newOrgTags,
+        foundation_id: foundationId,
+        created_by: userId,
+      })
+      .select('id, name')
+      .single()
+
+    if (error) {
+      setNewOrgError(error.message)
+      setNewOrgLoading(false)
+      return
+    }
+
+    // Log activity
+    await supabase.from('activity_log').insert({
+      foundation_id: foundationId,
+      user_id: userId,
+      action: 'organization_created',
+      entity_type: 'organization',
+      entity_id: data.id,
+      details: { name: newOrgName },
+    })
+
+    // Add to local list and select it
+    setOrganizations(prev => [...prev, { id: data.id, name: data.name }].sort((a, b) => a.name.localeCompare(b.name)))
+    setOrganizationId(data.id)
+
+    toast.success('Organization created')
+    setNewOrgLoading(false)
+    setNewOrgDialogOpen(false)
+    resetNewOrgForm()
+  }
   const [amount, setAmount] = useState(grant?.amount?.toString() || '')
   const [purpose, setPurpose] = useState(grant?.purpose || '')
   const [status, setStatus] = useState<GrantStatus>(grant?.status || 'idea')
@@ -179,24 +282,127 @@ export function GrantForm({
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="organization">Organization *</Label>
-            <Select value={organizationId} onValueChange={setOrganizationId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select an organization" />
-              </SelectTrigger>
-              <SelectContent>
-                {organizations.map((org) => (
-                  <SelectItem key={org.id} value={org.id}>
-                    {org.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex gap-2">
+              <Select value={organizationId} onValueChange={setOrganizationId}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Select an organization" />
+                </SelectTrigger>
+                <SelectContent>
+                  {organizations.map((org) => (
+                    <SelectItem key={org.id} value={org.id}>
+                      {org.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Dialog open={newOrgDialogOpen} onOpenChange={(open) => {
+                setNewOrgDialogOpen(open)
+                if (!open) resetNewOrgForm()
+              }}>
+                <DialogTrigger asChild>
+                  <Button type="button" variant="outline" size="icon">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>New Organization</DialogTitle>
+                    <DialogDescription>
+                      Add a new organization to your portfolio
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    {newOrgError && (
+                      <Alert variant="destructive">
+                        <AlertDescription>{newOrgError}</AlertDescription>
+                      </Alert>
+                    )}
+                    <div className="space-y-2">
+                      <Label htmlFor="newOrgName">Organization Name *</Label>
+                      <Input
+                        id="newOrgName"
+                        value={newOrgName}
+                        onChange={(e) => setNewOrgName(e.target.value)}
+                        placeholder="Organization name"
+                      />
+                    </div>
+                    <div className="grid gap-4 grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="newOrgEin">EIN (Tax ID)</Label>
+                        <Input
+                          id="newOrgEin"
+                          value={newOrgEin}
+                          onChange={(e) => setNewOrgEin(e.target.value)}
+                          placeholder="XX-XXXXXXX"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="newOrgTaxStatus">Tax Status</Label>
+                        <Select value={newOrgTaxStatus} onValueChange={setNewOrgTaxStatus}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="501c3">501(c)(3)</SelectItem>
+                            <SelectItem value="501c4">501(c)(4)</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="newOrgWebsite">Website</Label>
+                      <Input
+                        id="newOrgWebsite"
+                        type="url"
+                        value={newOrgWebsite}
+                        onChange={(e) => setNewOrgWebsite(e.target.value)}
+                        placeholder="https://..."
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="newOrgMission">Mission Statement</Label>
+                      <Textarea
+                        id="newOrgMission"
+                        value={newOrgMission}
+                        onChange={(e) => setNewOrgMission(e.target.value)}
+                        placeholder="Describe the organization's mission..."
+                        rows={2}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Tags / Focus Areas</Label>
+                      <MultiSelect
+                        options={FOCUS_AREA_OPTIONS}
+                        selected={newOrgTags}
+                        onChange={setNewOrgTags}
+                        placeholder="Select focus areas..."
+                        allowCustom
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setNewOrgDialogOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={handleCreateOrganization}
+                      disabled={newOrgLoading}
+                    >
+                      {newOrgLoading ? 'Creating...' : 'Create Organization'}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
             {organizations.length === 0 && (
               <p className="text-sm text-muted-foreground">
-                No organizations yet.{' '}
-                <a href="/organizations/new" className="text-blue-600 hover:underline">
-                  Add one first
-                </a>
+                No organizations yet. Click the + button to add one.
               </p>
             )}
           </div>

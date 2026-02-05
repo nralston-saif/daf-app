@@ -3,9 +3,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
-import { Plus, Building2, HandCoins, Calendar, TrendingUp, Clock, DollarSign, Target } from 'lucide-react'
-import { formatDistanceToNow, format } from 'date-fns'
-import type { Foundation, User, Grant, GrantStatus, Meeting } from '@/types/database'
+import { Plus, Building2, HandCoins, TrendingUp, Clock, DollarSign, Target } from 'lucide-react'
+import { formatDistanceToNow } from 'date-fns'
+import type { Foundation, User, Grant, GrantStatus } from '@/types/database'
 import { GoalProgressChart } from '@/components/charts/goal-progress-chart'
 import { FocusAreaChart } from '@/components/charts/focus-area-chart'
 import { AnnualGoalEditor } from './annual-goal-editor'
@@ -44,7 +44,7 @@ export default async function DashboardPage() {
   const foundation = profile.foundation
 
   // Fetch stats
-  const [grantsResult, orgsResult, meetingsResult, activityResult] = await Promise.all([
+  const [grantsResult, orgsResult, activityResult] = await Promise.all([
     // Grants by status
     supabase
       .from('grants')
@@ -56,14 +56,6 @@ export default async function DashboardPage() {
       .from('organizations')
       .select('id', { count: 'exact' })
       .eq('foundation_id', foundation.id),
-    // Upcoming meetings
-    supabase
-      .from('meetings')
-      .select('*')
-      .eq('foundation_id', foundation.id)
-      .gte('date_time', new Date().toISOString())
-      .order('date_time', { ascending: true })
-      .limit(3),
     // Recent activity
     supabase
       .from('activity_log')
@@ -75,7 +67,6 @@ export default async function DashboardPage() {
 
   const grants = (grantsResult.data || []) as unknown as DashboardGrant[]
   const orgCount = orgsResult.count || 0
-  const meetings = (meetingsResult.data || []) as unknown as Meeting[]
   const activities = (activityResult.data || []) as unknown as ActivityLog[]
 
   // Calculate stats
@@ -237,96 +228,49 @@ export default async function DashboardPage() {
             Add Organization
           </Button>
         </Link>
-        <Link href="/meetings/new">
-          <Button variant="outline">
-            <Calendar className="h-4 w-4 mr-2" />
-            Schedule Meeting
-          </Button>
-        </Link>
       </div>
 
-      {/* Main content grid */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Recent grants */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              Recent Grants
-              <Link href="/grants">
-                <Button variant="ghost" size="sm">View all</Button>
-              </Link>
-            </CardTitle>
-            <CardDescription>Latest grant activity</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {grants.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                No grants yet. Create your first grant to get started.
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {grants.slice(0, 5).map((grant) => (
-                  <Link
-                    key={grant.id}
-                    href={`/grants/${grant.id}`}
-                    className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="space-y-1">
-                      <p className="font-medium text-sm">
-                        {(grant.organization as { name: string })?.name || 'Unknown Org'}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        ${(grant.amount || 0).toLocaleString()}
-                      </p>
-                    </div>
-                    <Badge className={statusColors[grant.status] || 'bg-gray-100'}>
-                      {grant.status.replace('_', ' ')}
-                    </Badge>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Upcoming meetings */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              Upcoming Meetings
-              <Link href="/meetings">
-                <Button variant="ghost" size="sm">View all</Button>
-              </Link>
-            </CardTitle>
-            <CardDescription>Scheduled meetings</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {meetings.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                No upcoming meetings scheduled.
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {meetings.map((meeting) => (
-                  <Link
-                    key={meeting.id}
-                    href={`/meetings/${meeting.id}`}
-                    className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="space-y-1">
-                      <p className="font-medium text-sm">{meeting.title}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {format(new Date(meeting.date_time), 'MMM d, yyyy h:mm a')}
-                      </p>
-                    </div>
-                    <Badge variant="outline">{meeting.type}</Badge>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      {/* Recent grants */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            Recent Grants
+            <Link href="/grants">
+              <Button variant="ghost" size="sm">View all</Button>
+            </Link>
+          </CardTitle>
+          <CardDescription>Latest grant activity</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {grants.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No grants yet. Create your first grant to get started.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {grants.slice(0, 5).map((grant) => (
+                <Link
+                  key={grant.id}
+                  href={`/grants/${grant.id}`}
+                  className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <div className="space-y-1">
+                    <p className="font-medium text-sm">
+                      {(grant.organization as { name: string })?.name || 'Unknown Org'}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      ${(grant.amount || 0).toLocaleString()}
+                    </p>
+                  </div>
+                  <Badge className={statusColors[grant.status] || 'bg-gray-100'}>
+                    {grant.status.replace('_', ' ')}
+                  </Badge>
+                </Link>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Activity feed */}
       <Card>
@@ -346,7 +290,6 @@ export default async function DashboardPage() {
                   <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center">
                     {activity.action.includes('grant') && <HandCoins className="h-4 w-4 text-gray-600" />}
                     {activity.action.includes('org') && <Building2 className="h-4 w-4 text-gray-600" />}
-                    {activity.action.includes('meeting') && <Calendar className="h-4 w-4 text-gray-600" />}
                     {activity.action.includes('user') && <Building2 className="h-4 w-4 text-gray-600" />}
                     {activity.action.includes('foundation') && <Building2 className="h-4 w-4 text-gray-600" />}
                   </div>

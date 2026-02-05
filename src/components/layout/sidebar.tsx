@@ -8,7 +8,6 @@ import {
   LayoutDashboard,
   Building2,
   HandCoins,
-  Calendar,
   Settings,
   LogOut,
   ChevronLeft,
@@ -24,7 +23,6 @@ const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Organizations', href: '/organizations', icon: Building2 },
   { name: 'Grants', href: '/grants', icon: HandCoins },
-  { name: 'Meetings', href: '/meetings', icon: Calendar },
   { name: 'Settings', href: '/settings', icon: Settings },
 ]
 

@@ -13,8 +13,6 @@ export type GrantStatus =
 
 export type Recommendation = 'approve' | 'decline' | 'abstain'
 
-export type MeetingType = 'quarterly' | 'annual' | 'adhoc'
-export type MeetingFormat = 'zoom' | 'call' | 'in_person'
 export type GrantRecurrence = 'one_time' | 'monthly' | 'quarterly' | 'semi_annual' | 'annual'
 
 export interface Database {
@@ -299,58 +297,11 @@ export interface Database {
           updated_at?: string
         }
       }
-      meetings: {
-        Row: {
-          id: string
-          foundation_id: string
-          type: MeetingType
-          title: string
-          date_time: string
-          agenda_items: string[]
-          attendees: string[]
-          minutes: string | null
-          format: MeetingFormat
-          meeting_link: string | null
-          timezone: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          foundation_id: string
-          type?: MeetingType
-          title: string
-          date_time: string
-          agenda_items?: string[]
-          attendees?: string[]
-          minutes?: string | null
-          format?: MeetingFormat
-          meeting_link?: string | null
-          timezone?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          foundation_id?: string
-          type?: MeetingType
-          title?: string
-          date_time?: string
-          agenda_items?: string[]
-          attendees?: string[]
-          minutes?: string | null
-          format?: MeetingFormat
-          meeting_link?: string | null
-          timezone?: string
-          created_at?: string
-          updated_at?: string
-        }
-      }
       documents: {
         Row: {
           id: string
           foundation_id: string
-          entity_type: 'organization' | 'grant' | 'meeting'
+          entity_type: 'organization' | 'grant'
           entity_id: string
           file_name: string
           file_path: string
@@ -362,7 +313,7 @@ export interface Database {
         Insert: {
           id?: string
           foundation_id: string
-          entity_type: 'organization' | 'grant' | 'meeting'
+          entity_type: 'organization' | 'grant'
           entity_id: string
           file_name: string
           file_path: string
@@ -456,7 +407,6 @@ export interface Database {
       user_role: UserRole
       grant_status: GrantStatus
       recommendation: Recommendation
-      meeting_type: MeetingType
     }
   }
 }
@@ -467,7 +417,6 @@ export type User = Database['public']['Tables']['users']['Row']
 export type Organization = Database['public']['Tables']['organizations']['Row']
 export type Grant = Database['public']['Tables']['grants']['Row']
 export type GrantReview = Database['public']['Tables']['grant_reviews']['Row']
-export type Meeting = Database['public']['Tables']['meetings']['Row']
 export type Document = Database['public']['Tables']['documents']['Row']
 export type GrantComment = Database['public']['Tables']['grant_comments']['Row']
 export type GrantPayment = Database['public']['Tables']['grant_payments']['Row']
@@ -479,7 +428,6 @@ export type UserInsert = Database['public']['Tables']['users']['Insert']
 export type OrganizationInsert = Database['public']['Tables']['organizations']['Insert']
 export type GrantInsert = Database['public']['Tables']['grants']['Insert']
 export type GrantReviewInsert = Database['public']['Tables']['grant_reviews']['Insert']
-export type MeetingInsert = Database['public']['Tables']['meetings']['Insert']
 export type DocumentInsert = Database['public']['Tables']['documents']['Insert']
 export type GrantCommentInsert = Database['public']['Tables']['grant_comments']['Insert']
 export type GrantPaymentInsert = Database['public']['Tables']['grant_payments']['Insert']
@@ -503,6 +451,3 @@ export type OrganizationWithGrants = Organization & {
   grants: Grant[]
 }
 
-export type MeetingWithAttendees = Meeting & {
-  attendee_users: User[]
-}

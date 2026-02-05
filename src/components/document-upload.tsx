@@ -13,7 +13,7 @@ import type { Document } from '@/types/database'
 
 interface DocumentUploadProps {
   foundationId: string
-  entityType: 'organization' | 'grant' | 'meeting'
+  entityType: 'organization' | 'grant'
   entityId: string
   documents: Document[]
   canUpload: boolean
