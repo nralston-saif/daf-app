@@ -20,12 +20,8 @@ interface GrantStatusSelectProps {
 }
 
 const statusOptions: { value: GrantStatus; label: string }[] = [
-  { value: 'idea', label: 'Idea' },
-  { value: 'research', label: 'Research' },
   { value: 'review', label: 'Review' },
-  { value: 'pending_vote', label: 'Pending Vote' },
   { value: 'approved', label: 'Approved' },
-  { value: 'submitted', label: 'Submitted' },
   { value: 'paid', label: 'Paid' },
   { value: 'declined', label: 'Declined' },
   { value: 'closed', label: 'Closed' },
