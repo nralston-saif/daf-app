@@ -99,9 +99,14 @@ export default async function DashboardPage() {
     grant: { id: string; organization: { name: string } | null } | null
   }[]
 
-  // Calculate stats
-  const approvedGrants = grants.filter(g => ['approved', 'paid'].includes(g.status))
-  const ytdGranted = approvedGrants.reduce((sum, g) => sum + (g.amount || 0), 0)
+  // Calculate stats — YTD only includes current year grants
+  const currentYearStart = `${new Date().getFullYear()}-01-01`
+  const ytdGrants = grants.filter(g => {
+    if (!['approved', 'paid'].includes(g.status)) return false
+    const grantDate = g.start_date || g.created_at
+    return grantDate >= currentYearStart
+  })
+  const ytdGranted = ytdGrants.reduce((sum, g) => sum + (g.amount || 0), 0)
   const annualGoal = (foundation as Foundation & { annual_giving_goal?: number }).annual_giving_goal || 0
 
   // Future section: Committed grants (approved but not yet paid)

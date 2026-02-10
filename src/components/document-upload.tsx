@@ -104,7 +104,9 @@ export function DocumentUpload({
       }
 
       setProgress(100)
+
       toast.success('Document uploaded')
+
       router.refresh()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Upload failed')

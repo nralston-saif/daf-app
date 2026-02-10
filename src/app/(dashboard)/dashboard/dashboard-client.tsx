@@ -85,21 +85,50 @@ export function DashboardClient({
     <div className="space-y-6">
       {/* Summary stats + date range picker */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="grid grid-cols-3 gap-4">
-          <div>
+        <div className="flex gap-6">
+          <div className="min-w-0">
             <p className="text-sm text-muted-foreground">Total Granted</p>
-            <p className="text-2xl font-bold">${rangeTotalGranted.toLocaleString()}</p>
+            <p className="text-2xl font-bold whitespace-nowrap">${rangeTotalGranted.toLocaleString()}</p>
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-sm text-muted-foreground">Grants</p>
             <p className="text-2xl font-bold">{rangeGrantCount}</p>
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-sm text-muted-foreground">Organizations</p>
             <p className="text-2xl font-bold">{rangeOrgCount}</p>
           </div>
         </div>
         <div className="flex items-end gap-2">
+          <div className="flex items-end gap-1.5 mr-2">
+            <Button
+              variant={rangeStart === '2000-01-01' ? 'default' : 'outline'}
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => {
+                setRangeStart('2000-01-01')
+                setRangeEnd(format(new Date(), 'yyyy-MM-dd'))
+              }}
+            >
+              All Time
+            </Button>
+            <Button
+              variant={
+                rangeStart === format(startOfYear(new Date()), 'yyyy-MM-dd') &&
+                rangeStart !== '2000-01-01'
+                  ? 'default'
+                  : 'outline'
+              }
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => {
+                setRangeStart(format(startOfYear(new Date()), 'yyyy-MM-dd'))
+                setRangeEnd(format(new Date(), 'yyyy-MM-dd'))
+              }}
+            >
+              YTD
+            </Button>
+          </div>
           <div className="space-y-1">
             <Label className="text-xs">From</Label>
             <Input
@@ -152,9 +181,9 @@ export function DashboardClient({
         <CardHeader>
           <CardTitle>Annual Goal Progress</CardTitle>
           <CardDescription>
-            ${ytdGranted.toLocaleString()} of ${annualGoal.toLocaleString()} goal
+            <span>${ytdGranted.toLocaleString()} of ${annualGoal.toLocaleString()} goal</span>
+            <span className="ml-2 inline-block">{annualGoalEditor}</span>
           </CardDescription>
-          {annualGoalEditor}
         </CardHeader>
         <CardContent>
           {goalProgressChart}

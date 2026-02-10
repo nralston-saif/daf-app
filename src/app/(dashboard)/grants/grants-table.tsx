@@ -96,9 +96,12 @@ export function GrantsTable({ grants }: GrantsTableProps) {
         case 'status':
           cmp = (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99)
           break
-        case 'date':
-          cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        case 'date': {
+          const aDate = a.start_date || a.created_at
+          const bDate = b.start_date || b.created_at
+          cmp = new Date(aDate).getTime() - new Date(bDate).getTime()
           break
+        }
       }
       return sortDirection === 'asc' ? cmp : -cmp
     })
@@ -208,7 +211,7 @@ export function GrantsTable({ grants }: GrantsTableProps) {
                     {grant.proposed_by_user?.name || 'Unknown'}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {format(new Date(grant.created_at), 'MMM d, yyyy')}
+                    {format(new Date(grant.start_date || grant.created_at), 'MMM d, yyyy')}
                   </TableCell>
                   <TableCell>
                     <Link href={`/grants/${grant.id}`}>
