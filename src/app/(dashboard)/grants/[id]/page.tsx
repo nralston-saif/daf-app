@@ -155,6 +155,7 @@ export default async function GrantDetailPage({
                 grantId={id}
                 currentStatus={grant.status as GrantStatus}
                 userId={profile.id}
+                hasScheduledPayments={payments?.some(p => p.status === 'scheduled')}
               />
               <Link href={`/grants/${id}/edit`}>
                 <Button variant="outline" size="icon">

@@ -75,6 +75,26 @@ export function PaymentSchedule({ grantId, payments }: PaymentScheduleProps) {
       return
     }
 
+    // Check if this was the last scheduled payment
+    const remainingScheduled = payments.filter(
+      (p) => p.status === 'scheduled' && p.id !== paymentId
+    )
+
+    if (remainingScheduled.length === 0) {
+      const { error: statusError } = await supabase
+        .from('grants')
+        .update({ status: 'paid' })
+        .eq('id', grantId)
+
+      if (statusError) {
+        toast.error('Payment saved but failed to update grant status')
+      } else {
+        toast.success('All payments complete — grant marked as paid')
+        router.refresh()
+        return
+      }
+    }
+
     toast.success('Payment marked as paid')
     router.refresh()
   }

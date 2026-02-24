@@ -17,6 +17,7 @@ interface GrantStatusSelectProps {
   grantId: string
   currentStatus: GrantStatus
   userId: string
+  hasScheduledPayments?: boolean
 }
 
 const statusOptions: { value: GrantStatus; label: string }[] = [
@@ -31,6 +32,7 @@ export function GrantStatusSelect({
   grantId,
   currentStatus,
   userId,
+  hasScheduledPayments,
 }: GrantStatusSelectProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
@@ -92,11 +94,13 @@ export function GrantStatusSelect({
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {statusOptions.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
-            {option.label}
-          </SelectItem>
-        ))}
+        {statusOptions
+          .filter((option) => !(option.value === 'paid' && hasScheduledPayments))
+          .map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
       </SelectContent>
     </Select>
   )
