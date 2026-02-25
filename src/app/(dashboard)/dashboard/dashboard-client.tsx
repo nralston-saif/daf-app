@@ -186,12 +186,14 @@ export function DashboardClient({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {goalProgressChart}
-          {annualGoal > 0 && ytdGranted < annualGoal && (
-            <p className="text-center text-sm text-muted-foreground mt-2">
-              ${(annualGoal - ytdGranted).toLocaleString()} remaining to reach goal
-            </p>
-          )}
+          <div>
+            {goalProgressChart}
+            {annualGoal > 0 && ytdGranted < annualGoal && (
+              <p className="text-center text-sm text-muted-foreground mt-2">
+                ${(annualGoal - ytdGranted).toLocaleString()} remaining to reach goal
+              </p>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>

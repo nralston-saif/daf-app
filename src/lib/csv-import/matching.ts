@@ -44,8 +44,13 @@ export function matchOrganizations(
     }
   }
 
-  return csvRows.map((row) => {
-    // 1. Try EIN exact match
+  // Track the first "new" org per EIN within this batch so duplicates
+  // in the same CSV file are grouped together instead of creating
+  // multiple organizations with the same EIN.
+  const batchEinFirstOrg = new Map<string, { index: number; orgName: string }>()
+
+  return csvRows.map((row, rowIndex) => {
+    // 1. Try EIN exact match against existing DB orgs
     if (row.ein) {
       const normalizedEin = row.ein.replace(/-/g, '')
       const match = einIndex.get(normalizedEin)
@@ -59,9 +64,25 @@ export function matchOrganizations(
           nameChanged,
         }
       }
+
+      // 2. Check if an earlier row in this batch already introduced this EIN.
+      //    Mark as medium confidence so it's included by default — the commit
+      //    step will reuse the org created for the first row with this EIN.
+      const batchFirst = batchEinFirstOrg.get(normalizedEin)
+      if (batchFirst) {
+        return {
+          type: 'new' as const,
+          confidence: 'medium' as const,
+          existingOrg: null,
+          nameChanged: false,
+        }
+      }
+
+      // Record this row as the first with this EIN
+      batchEinFirstOrg.set(normalizedEin, { index: rowIndex, orgName: row.orgName })
     }
 
-    // 2. Try fuzzy name match
+    // 3. Try fuzzy name match
     let bestMatch: ExistingOrg | null = null
     let bestScore = 0
     for (const org of existingOrgs) {
@@ -83,7 +104,7 @@ export function matchOrganizations(
       }
     }
 
-    // 3. No match
+    // 4. No match
     return {
       type: 'new' as const,
       confidence: 'low' as const,
@@ -99,16 +120,31 @@ export function matchGrants(
 ): GrantMatch[] {
   return importRows.map(({ orgMatch, csv }) => {
     if (orgMatch.existingOrg) {
-      const match = existingApprovedGrants.find(
+      // Find all approved grants for this org (match on org only, not amount)
+      const candidates = existingApprovedGrants.filter(
         (g) =>
           g.organization_id === orgMatch.existingOrg!.id &&
-          g.amount === csv.amount &&
           g.status === 'approved'
       )
-      if (match) {
+
+      if (candidates.length === 1) {
         return {
           type: 'transition' as const,
-          existingGrant: match,
+          existingGrant: candidates[0],
+        }
+      }
+
+      if (candidates.length > 1) {
+        // Disambiguate: pick the grant with the closest amount to the CSV row
+        const best = candidates.reduce((prev, curr) =>
+          Math.abs(curr.amount - csv.amount) <
+          Math.abs(prev.amount - csv.amount)
+            ? curr
+            : prev
+        )
+        return {
+          type: 'transition' as const,
+          existingGrant: best,
         }
       }
     }

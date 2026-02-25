@@ -148,8 +148,9 @@ export function ImportClient({
     let created = 0
     let orgErrors = 0
 
-    // Build a map for newly created orgs so we can reference them
+    // Build maps for newly created orgs so we can reference them by index or EIN
     const newOrgIdMap = new Map<number, string>()
+    const newOrgEinMap = new Map<string, string>()
 
     for (let i = 0; i < toProcess.length; i++) {
       const row = toProcess[i]
@@ -173,14 +174,23 @@ export function ImportClient({
           }
         } else {
           // Check if we already created this org in a previous row (same EIN or name)
-          const existingNewOrgIndex = toProcess.findIndex(
-            (r, j) =>
-              j < i &&
-              r.orgMatch.type === 'new' &&
-              r.csv.orgName === row.csv.orgName
-          )
+          const normalizedEin = row.csv.ein?.replace(/-/g, '') || ''
 
-          if (existingNewOrgIndex >= 0 && newOrgIdMap.has(existingNewOrgIndex)) {
+          // First check by EIN (more reliable), then fall back to name
+          const existingByEin = normalizedEin ? newOrgEinMap.get(normalizedEin) : undefined
+
+          const existingNewOrgIndex = !existingByEin
+            ? toProcess.findIndex(
+                (r, j) =>
+                  j < i &&
+                  r.orgMatch.type === 'new' &&
+                  r.csv.orgName === row.csv.orgName
+              )
+            : -1
+
+          if (existingByEin) {
+            orgId = existingByEin
+          } else if (existingNewOrgIndex >= 0 && newOrgIdMap.has(existingNewOrgIndex)) {
             orgId = newOrgIdMap.get(existingNewOrgIndex)!
           } else {
             // Build address string from parts
@@ -213,6 +223,9 @@ export function ImportClient({
 
             orgId = newOrg.id
             newOrgIdMap.set(i, orgId)
+            if (normalizedEin) {
+              newOrgEinMap.set(normalizedEin, orgId)
+            }
 
             // Log org creation
             await supabase.from('activity_log').insert({
@@ -227,10 +240,21 @@ export function ImportClient({
         }
 
         if (row.grantMatch.type === 'transition' && row.grantMatch.existingGrant) {
-          // Transition existing grant to paid
+          // Transition existing grant to paid and update data from financial record
+          const previousAmount = row.grantMatch.existingGrant.amount
+          const updatePayload: Record<string, unknown> = {
+            status: 'paid',
+            amount: row.csv.amount,
+            start_date: row.csv.datePaid || null,
+            updated_at: new Date().toISOString(),
+          }
+          if (row.csv.purpose) {
+            updatePayload.purpose = row.csv.purpose
+          }
+
           const { error } = await supabase
             .from('grants')
-            .update({ status: 'paid', updated_at: new Date().toISOString() })
+            .update(updatePayload)
             .eq('id', row.grantMatch.existingGrant.id)
 
           if (!error) {
@@ -246,6 +270,10 @@ export function ImportClient({
                 from: 'approved',
                 to: 'paid',
                 source: 'csv_import',
+                previousAmount,
+                newAmount: row.csv.amount,
+                previousDate: null,
+                newDate: row.csv.datePaid || null,
               },
             })
           }

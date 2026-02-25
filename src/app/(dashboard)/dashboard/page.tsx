@@ -269,9 +269,9 @@ export default async function DashboardPage() {
           grants={grants}
           ytdGranted={ytdGranted}
           annualGoal={annualGoal}
-          goalProgressChart={<GoalProgressChart granted={ytdGranted} goal={annualGoal} />}
+          goalProgressChart={<GoalProgressChart key="goal-progress" granted={ytdGranted} goal={annualGoal} />}
           annualGoalEditor={
-            <AnnualGoalEditor foundationId={foundation.id} currentGoal={annualGoal} />
+            <AnnualGoalEditor key="annual-goal-editor" foundationId={foundation.id} currentGoal={annualGoal} />
           }
         />
       </div>

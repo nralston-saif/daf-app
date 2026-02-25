@@ -21,7 +21,12 @@ export type OrgMatch = {
 
 export type GrantMatch = {
   type: 'transition' | 'new'
-  existingGrant: { id: string; amount: number; status: string } | null
+  existingGrant: {
+    id: string
+    organization_id: string
+    amount: number
+    status: string
+  } | null
 }
 
 export type ImportRow = {

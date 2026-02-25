@@ -1,7 +1,16 @@
 'use client'
 
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { subMonths } from 'date-fns'
 
 interface GrantsPipelineProps {
   grantsByStatus: Record<string, any[]>
@@ -17,12 +26,27 @@ const statusConfig: Record<string, { label: string; color: string; headerBorder:
 
 const pipelineStages = ['review', 'approved', 'paid']
 
+type PaidFilter = 'recent' | 'all'
+
 export function GrantsPipeline({ grantsByStatus }: GrantsPipelineProps) {
+  const [paidFilter, setPaidFilter] = useState<PaidFilter>('recent')
+
+  const twoMonthsAgo = useMemo(() => subMonths(new Date(), 2), [])
+
+  const getFilteredGrants = (status: string, allGrants: any[]) => {
+    if (status !== 'paid' || paidFilter === 'all') return allGrants
+    return allGrants.filter((g: any) => {
+      const d = new Date(g.start_date || g.created_at)
+      return d >= twoMonthsAgo
+    })
+  }
+
   return (
     <div className="grid grid-cols-3 gap-4">
       {pipelineStages.map((status) => {
         const config = statusConfig[status]
-        const grants = grantsByStatus[status] || []
+        const allGrants = grantsByStatus[status] || []
+        const grants = getFilteredGrants(status, allGrants)
         const totalAmount = grants.reduce((sum: number, g: any) => sum + (g.amount || 0), 0)
 
         return (
@@ -36,9 +60,22 @@ export function GrantsPipeline({ grantsByStatus }: GrantsPipelineProps) {
                 <h3 className={`font-semibold text-sm ${config.color}`}>
                   {config.label}
                 </h3>
-                <Badge variant="secondary" className="font-normal text-xs">
-                  {grants.length}
-                </Badge>
+                <div className="flex items-center gap-1.5">
+                  {status === 'paid' && (
+                    <Select value={paidFilter} onValueChange={(v) => setPaidFilter(v as PaidFilter)}>
+                      <SelectTrigger className="h-6 text-xs w-[110px] border-none bg-white/60">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="recent">Last 2 months</SelectItem>
+                        <SelectItem value="all">All time</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <Badge variant="secondary" className="font-normal text-xs">
+                    {grants.length}
+                  </Badge>
+                </div>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
                 ${totalAmount.toLocaleString()}

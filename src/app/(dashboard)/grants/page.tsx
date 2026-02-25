@@ -51,10 +51,10 @@ export default async function GrantsPage({
     total: grants?.length || 0,
     totalValue: grants?.reduce((sum, g) => sum + (g.amount || 0), 0) || 0,
     pending: grants?.filter(g => g.status === 'review').length || 0,
-    approved: grants?.filter(g => ['approved', 'paid'].includes(g.status)).length || 0,
+    approved: grants?.filter(g => g.status === 'approved').length || 0,
   }
 
-  const view = params.view || 'pipeline'
+  const view = params.view || 'list'
   const canCreate = ['primary_advisor', 'advisor'].includes(profile.role)
 
   return (
@@ -120,11 +120,11 @@ export default async function GrantsPage({
       {/* View toggle */}
       <Tabs defaultValue={view} className="w-full">
         <TabsList>
-          <TabsTrigger value="pipeline">
-            <Link href="/grants?view=pipeline">Pipeline</Link>
-          </TabsTrigger>
           <TabsTrigger value="list">
             <Link href="/grants?view=list">List</Link>
+          </TabsTrigger>
+          <TabsTrigger value="pipeline">
+            <Link href="/grants?view=pipeline">Pipeline</Link>
           </TabsTrigger>
         </TabsList>
 
