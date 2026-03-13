@@ -38,14 +38,20 @@ export default async function ImportPage() {
     .eq('foundation_id', profile.foundation_id)
     .eq('status', 'approved')
 
-  // Load the Schwab EIN lookup CSV
-  const einLookupPath = path.join(
-    process.cwd(),
-    'daf-docs',
-    'Charities EIN & Types - Schwab_EIN_Lookup.csv'
-  )
-  const einLookupContent = await fs.readFile(einLookupPath, 'utf-8')
-  const { entries: einLookupEntries } = parseEinLookupCsv(einLookupContent)
+  // Load the Schwab EIN lookup CSV (may not exist in deployed environments)
+  let einLookupEntries: { name: string; ein: string | null; type: string | null }[] = []
+  try {
+    const einLookupPath = path.join(
+      process.cwd(),
+      'daf-docs',
+      'Charities EIN & Types - Schwab_EIN_Lookup.csv'
+    )
+    const einLookupContent = await fs.readFile(einLookupPath, 'utf-8')
+    const result = parseEinLookupCsv(einLookupContent)
+    einLookupEntries = result.entries
+  } catch {
+    // EIN lookup file not available — Schwab imports will proceed without EIN enrichment
+  }
 
   return (
     <ImportClient
