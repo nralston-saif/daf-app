@@ -6,6 +6,7 @@ type ExistingGrant = {
   organization_id: string
   amount: number
   status: string
+  start_date: string | null
 }
 
 const STRIP_SUFFIXES =
@@ -116,11 +117,27 @@ export function matchOrganizations(
 
 export function matchGrants(
   importRows: { csv: CsvRow; orgMatch: OrgMatch }[],
-  existingApprovedGrants: ExistingGrant[]
+  existingApprovedGrants: ExistingGrant[],
+  existingPaidGrants: ExistingGrant[]
 ): GrantMatch[] {
   return importRows.map(({ orgMatch, csv }) => {
     if (orgMatch.existingOrg) {
-      // Find all approved grants for this org (match on org only, not amount)
+      // 1. Check for duplicates against paid grants (org + amount + date)
+      const duplicate = existingPaidGrants.find(
+        (g) =>
+          g.organization_id === orgMatch.existingOrg!.id &&
+          g.amount === csv.amount &&
+          g.start_date === (csv.datePaid || null)
+      )
+
+      if (duplicate) {
+        return {
+          type: 'duplicate' as const,
+          existingGrant: duplicate,
+        }
+      }
+
+      // 2. Check for approved grants to transition
       const candidates = existingApprovedGrants.filter(
         (g) =>
           g.organization_id === orgMatch.existingOrg!.id &&
@@ -159,7 +176,8 @@ export function matchGrants(
 export function buildImportRows(
   csvRows: CsvRow[],
   existingOrgs: ExistingOrg[],
-  existingApprovedGrants: ExistingGrant[]
+  existingApprovedGrants: ExistingGrant[],
+  existingPaidGrants: ExistingGrant[]
 ): ImportRow[] {
   const orgMatches = matchOrganizations(csvRows, existingOrgs)
 
@@ -168,12 +186,12 @@ export function buildImportRows(
     orgMatch: orgMatches[i],
   }))
 
-  const grantMatches = matchGrants(intermediate, existingApprovedGrants)
+  const grantMatches = matchGrants(intermediate, existingApprovedGrants, existingPaidGrants)
 
   return csvRows.map((csv, i) => ({
     csv,
     orgMatch: orgMatches[i],
     grantMatch: grantMatches[i],
-    included: orgMatches[i].confidence !== 'low',
+    included: orgMatches[i].confidence !== 'low' && grantMatches[i].type !== 'duplicate',
   }))
 }

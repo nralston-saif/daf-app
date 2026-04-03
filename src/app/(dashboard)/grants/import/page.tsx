@@ -34,9 +34,16 @@ export default async function ImportPage() {
   // Fetch all approved grants with org info
   const { data: approvedGrants } = await supabase
     .from('grants')
-    .select('id, organization_id, amount, status')
+    .select('id, organization_id, amount, status, start_date')
     .eq('foundation_id', profile.foundation_id)
     .eq('status', 'approved')
+
+  // Fetch all paid grants for duplicate detection
+  const { data: paidGrants } = await supabase
+    .from('grants')
+    .select('id, organization_id, amount, status, start_date')
+    .eq('foundation_id', profile.foundation_id)
+    .eq('status', 'paid')
 
   // Load the Schwab EIN lookup CSV (may not exist in deployed environments)
   let einLookupEntries: { name: string; ein: string | null; type: string | null }[] = []
@@ -57,6 +64,7 @@ export default async function ImportPage() {
     <ImportClient
       orgs={orgs || []}
       approvedGrants={approvedGrants || []}
+      paidGrants={paidGrants || []}
       userId={profile.id}
       foundationId={profile.foundation_id}
       einLookupEntries={einLookupEntries}

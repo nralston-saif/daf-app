@@ -49,6 +49,14 @@ interface ImportClientProps {
     organization_id: string
     amount: number
     status: string
+    start_date: string | null
+  }[]
+  paidGrants: {
+    id: string
+    organization_id: string
+    amount: number
+    status: string
+    start_date: string | null
   }[]
   userId: string
   foundationId: string
@@ -58,6 +66,7 @@ interface ImportClientProps {
 export function ImportClient({
   orgs,
   approvedGrants,
+  paidGrants,
   userId,
   foundationId,
   einLookupEntries,
@@ -103,7 +112,7 @@ export function ImportClient({
       }
 
       setParseErrors(errors)
-      const importRows = buildImportRows(csvRows, orgs, approvedGrants)
+      const importRows = buildImportRows(csvRows, orgs, approvedGrants, paidGrants)
       setRows(importRows)
       setPhase('review')
     }
@@ -144,6 +153,9 @@ export function ImportClient({
   ).length
   const newOrgCount = includedRows.filter(
     (r) => r.orgMatch.type === 'new'
+  ).length
+  const duplicateCount = rows.filter(
+    (r) => r.grantMatch.type === 'duplicate'
   ).length
   const lowConfidenceCount = rows.filter(
     (r) => r.orgMatch.confidence === 'low'
@@ -491,7 +503,7 @@ export function ImportClient({
         )}
 
         {/* Summary cards */}
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-5">
           <Card>
             <CardContent className="pt-6">
               <div className="text-2xl font-bold">{transitionCount}</div>
@@ -520,6 +532,14 @@ export function ImportClient({
                 {lowConfidenceCount}
               </div>
               <p className="text-sm text-muted-foreground">Need Review</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-2xl font-bold text-muted-foreground">
+                {duplicateCount}
+              </div>
+              <p className="text-sm text-muted-foreground">Duplicates Skipped</p>
             </CardContent>
           </Card>
         </div>
@@ -712,6 +732,13 @@ function OrgMatchBadge({ match }: { match: ImportRow['orgMatch'] }) {
 }
 
 function GrantActionBadge({ match }: { match: ImportRow['grantMatch'] }) {
+  if (match.type === 'duplicate') {
+    return (
+      <Badge className="bg-gray-100 text-gray-500 border-gray-200">
+        Duplicate
+      </Badge>
+    )
+  }
   if (match.type === 'transition') {
     return (
       <Badge variant="outline" className="text-blue-700 border-blue-200">

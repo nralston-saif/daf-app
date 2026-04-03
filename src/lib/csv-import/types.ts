@@ -20,12 +20,13 @@ export type OrgMatch = {
 }
 
 export type GrantMatch = {
-  type: 'transition' | 'new'
+  type: 'transition' | 'new' | 'duplicate'
   existingGrant: {
     id: string
     organization_id: string
     amount: number
     status: string
+    start_date: string | null
   } | null
 }
 
