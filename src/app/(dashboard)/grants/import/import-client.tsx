@@ -174,6 +174,7 @@ export function ImportClient({
     let transitioned = 0
     let created = 0
     let orgErrors = 0
+    let grantErrors = 0
 
     // Build maps for newly created orgs so we can reference them by index or EIN
     const newOrgIdMap = new Map<number, string>()
@@ -284,7 +285,10 @@ export function ImportClient({
             .update(updatePayload)
             .eq('id', row.grantMatch.existingGrant.id)
 
-          if (!error) {
+          if (error) {
+            console.error('Grant transition failed:', error, row.csv.orgName)
+            grantErrors++
+          } else {
             transitioned++
 
             await supabase.from('activity_log').insert({
@@ -321,7 +325,10 @@ export function ImportClient({
             .select('id')
             .single()
 
-          if (!error && newGrant) {
+          if (error) {
+            console.error('Grant insert failed:', error, row.csv.orgName, row.csv.amount)
+            grantErrors++
+          } else if (newGrant) {
             created++
 
             await supabase.from('activity_log').insert({
@@ -338,8 +345,9 @@ export function ImportClient({
             })
           }
         }
-      } catch {
-        // Continue processing remaining rows
+      } catch (err) {
+        console.error('Import row error:', err, row.csv.orgName)
+        grantErrors++
       }
 
       setCommitProgress(i + 1)
@@ -347,14 +355,18 @@ export function ImportClient({
 
     setCommitting(false)
 
+    const totalErrors = orgErrors + grantErrors
     const parts: string[] = []
     if (transitioned > 0) parts.push(`${transitioned} transitioned to Paid`)
     if (created > 0) parts.push(`${created} created`)
-    if (orgErrors > 0) parts.push(`${orgErrors} failed`)
+    if (totalErrors > 0) parts.push(`${totalErrors} failed`)
 
-    toast.success(
-      `Imported ${transitioned + created} grants: ${parts.join(', ')}`
-    )
+    const total = transitioned + created
+    if (total > 0) {
+      toast.success(`Imported ${total} grants: ${parts.join(', ')}`)
+    } else {
+      toast.error(`Import failed: ${parts.join(', ')}. Check browser console for details.`)
+    }
 
     router.push('/grants')
     router.refresh()
