@@ -88,12 +88,13 @@ function parseAmount(raw: string): number {
 }
 
 function parseDate(raw: string): string {
-  // Parse MM/DD/YYYY → ISO date string
+  // Parse MM/DD/YYYY or M/D/YY → ISO date string
   const parts = raw.trim().split('/')
   if (parts.length !== 3) return raw
-  const [month, day, year] = parts
+  const [month, day, yearRaw] = parts
   const m = month.padStart(2, '0')
   const d = day.padStart(2, '0')
+  const year = yearRaw.length === 2 ? `20${yearRaw}` : yearRaw
   return `${year}-${m}-${d}`
 }
 
