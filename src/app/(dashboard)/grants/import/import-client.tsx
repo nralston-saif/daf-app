@@ -30,6 +30,7 @@ import Link from 'next/link'
 import { parseMorganStanleyCsv } from '@/lib/csv-import/parse-csv'
 import { parseSchwabCsv } from '@/lib/csv-import/parse-schwab-csv'
 import { buildImportRows } from '@/lib/csv-import/matching'
+import { xlsxToCsv } from '@/lib/csv-import/xlsx-to-csv'
 import type { ImportRow } from '@/lib/csv-import/types'
 
 type Phase = 'upload' | 'review' | 'commit'
@@ -76,10 +77,9 @@ export function ImportClient({
     const file = e.target.files?.[0]
     if (!file) return
 
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      const content = event.target?.result as string
+    const isXlsx = file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls')
 
+    const processContent = (content: string) => {
       let csvRows
       let errors: string[]
 
@@ -97,7 +97,7 @@ export function ImportClient({
 
       if (csvRows.length === 0) {
         setParseErrors(
-          errors.length > 0 ? errors : ['No valid rows found in CSV']
+          errors.length > 0 ? errors : ['No valid rows found in file']
         )
         return
       }
@@ -107,7 +107,22 @@ export function ImportClient({
       setRows(importRows)
       setPhase('review')
     }
-    reader.readAsText(file)
+
+    if (isXlsx) {
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const buffer = event.target?.result as ArrayBuffer
+        const csvText = xlsxToCsv(buffer)
+        processContent(csvText)
+      }
+      reader.readAsArrayBuffer(file)
+    } else {
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        processContent(event.target?.result as string)
+      }
+      reader.readAsText(file)
+    }
   }
 
   const toggleRow = (index: number) => {
@@ -349,7 +364,7 @@ export function ImportClient({
               Import DAF History
             </h1>
             <p className="text-gray-500 mt-1">
-              Upload a CSV export to import grant history
+              Upload a CSV or Excel file to import grant history
             </p>
           </div>
         </div>
@@ -396,7 +411,7 @@ export function ImportClient({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".csv"
+                accept=".csv,.xlsx,.xls"
                 onChange={handleFileSelect}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               />
@@ -409,8 +424,8 @@ export function ImportClient({
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
                   {csvFormat === 'schwab'
-                    ? 'Schwab Charitable Grants History CSV'
-                    : 'Morgan Stanley DAF History CSV'}
+                    ? 'Schwab Charitable Grants History (CSV or Excel)'
+                    : 'Morgan Stanley DAF History (CSV or Excel)'}
                 </p>
               </div>
             </div>
